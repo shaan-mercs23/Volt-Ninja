@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOLT NINJA ⚡</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .hud {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        .screen {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #ffea00;
+            box-shadow: 0 0 30px #ffea00;
+            pointer-events: auto;
+        }
+
+        h1 { color: #ffea00; font-size: 48px; margin: 0 0 10px 0; text-shadow: 0 0 20px #ffea00; }
+        p { font-size: 18px; color: #ccc; }
+
+        button {
+            background: #ffea00; color: #000; border: none;
+            padding: 15px 30px; font-size: 20px; font-weight: bold;
+            border-radius: 5px; cursor: pointer; margin-top: 20px;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.1); box-shadow: 0 0 20px #ffea00; }
+
+        input {
+            display: block; width: 90%; margin: 15px auto;
+            padding: 10px; font-size: 16px; border-radius: 5px;
+            border: none; outline: none;
+        }
+
+        /* Game Area */
+        #game-area { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        .component {
+            position: absolute;
+            bottom: -100px;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .component:active { transform: scale(1.3); }
+
+        @keyframes flyUp {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-120vh) rotate(360deg); }
+        }
+
+        .hidden { display: none !important; }
+        
+        /* Floating text for score changes */
+        .score-pop {
+            position: absolute; font-weight: bold; font-size: 24px;
+            pointer-events: none; animation: floatUp 1s forwards; z-index: 5;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-area"></div>
+
+    <div id="ui-layer">
+        <div class="hud hidden" id="hud">
+            <div>Time: <span id="time">30</span>s</div>
+            <div>Score: <span id="score">0</span></div>
+        </div>
+
+        <!-- Start Screen -->
+        <div class="screen" id="start-screen">
+            <h1>VOLT NINJA ⚡</h1>
+            <p>Components are flying! Tap ONLY the <b>RESISTORS</b>.</p>
+            <p style="color: #0f0;">+1 Correct (Resistor)</p>
+            <p style="color: #f00;">-1 Wrong (Capacitor, Diode, Inductor)</p>
+            <button onclick="startGame()">START MISSION</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="screen hidden" id="end-screen">
+            <h1>MISSION OVER</h1>
+            <p>Final Score: <span id="final-score" style="color: #ffea00; font-size: 32px; font-weight: bold;">0</span></p>
+            <p>Enter your details to save your score to the database!</p>
+            
+            <form id="score-form">
+                <input type="text" id="playerName" placeholder="Your Name" required>
+                <input type="email" id="playerEmail" placeholder="Your Email" required>
+                <input type="tel" id="playerPhone" placeholder="Your Phone Number" required>
+                <button type="submit" id="submit-btn">SUBMIT SCORE</button>
+            </form>
+            <p id="status-msg" style="margin-top: 15px; color: #0f0;"></p>
+        </div>
+    </div>
+
+    <script>
+        // Inline SVGs representing the components
+        const SVGs = {
+            resistor: '<svg viewBox="0 0 100 50"><path d="M10,25 L20,25 L25,10 L35,40 L45,10 L55,40 L65,10 L75,40 L80,25 L90,25" stroke="#ffea00" stroke-width="6" stroke-linejoin="round" fill="none"/></svg>',
+            capacitor: '<svg viewBox="0 0 100 50"><path d="M20,25 L45,25 M45,10 L45,40 M55,10 L55,40 M55,25 L80,25" stroke="#00d8ff" stroke-width="6" fill="none"/></svg>',
+            diode: '<svg viewBox="0 0 100 50"><path d="M20,25 L40,25 L40,10 L60,25 L40,40 Z M60,10 L60,40 M60,25 L80,25" stroke="#ff003c" stroke-width="6" stroke-linejoin="round" fill="none"/></svg>',
+            inductor: '<svg viewBox="0 0 100 50"><path d="M10,25 L25,25 C25,5 40,5 40,25 C40,5 55,5 55,25 C55,5 70,5 70,25 L85,25" stroke="#b000ff" stroke-width="6" fill="none"/></svg>'
+        };
+
+        const types = ['resistor', 'capacitor', 'diode', 'inductor'];
+        let score = 0;
+        let timeLeft = 30;
+        let gameInterval;
+        let spawnInterval;
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            updateHUD();
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('game-area').innerHTML = '';
+
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                updateHUD();
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+
+            // Spawn components every 400ms
+            spawnInterval = setInterval(spawnComponent, 400);
+        }
+
+        function spawnComponent() {
+            const el = document.createElement('div');
+            el.classList.add('component');
+            
+            // Randomly pick component type (bias slightly towards resistors)
+            const isResistor = Math.random() > 0.6; 
+            const type = isResistor ? 'resistor' : types[Math.floor(Math.random() * types.length)];
+            
+            el.innerHTML = SVGs[type];
+            el.dataset.type = type;
+
+            // Random horizontal position
+            const startX = Math.random() * (window.innerWidth - 100);
+            el.style.left = startX + 'px';
+
+            // Random flight duration (speed)
+            const duration = Math.random() * 2 + 2; 
+            el.style.animation = `flyUp ${duration}s linear`;
+
+            // Click interaction
+            el.onmousedown = (e) => hitComponent(el, type, e.clientX, e.clientY);
+            el.ontouchstart = (e) => { 
+                e.preventDefault(); 
+                hitComponent(el, type, e.touches[0].clientX, e.touches[0].clientY); 
+            };
+
+            document.getElementById('game-area').appendChild(el);
+
+            // Remove after animation finishes
+            setTimeout(() => { if (el.parentNode) el.remove(); }, duration * 1000);
+        }
+
+        function hitComponent(el, type, x, y) {
+            if (!el.parentNode) return;
+            
+            el.remove(); // Destroy it
+
+            const isCorrect = (type === 'resistor');
+            if (isCorrect) score++; else score--;
+            
+            updateHUD();
+            showFloatingText(isCorrect ? "+1" : "-1", x, y, isCorrect ? "#0f0" : "#f00");
+        }
+
+        function showFloatingText(text, x, y, color) {
+            const pop = document.createElement('div');
+            pop.className = 'score-pop';
+            pop.style.left = x + 'px';
+            pop.style.top = y + 'px';
+            pop.style.color = color;
+            pop.innerText = text;
+            document.getElementById('game-area').appendChild(pop);
+            setTimeout(() => pop.remove(), 1000);
+        }
+
+        function updateHUD() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('time').innerText = timeLeft;
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            document.getElementById('game-area').innerHTML = ''; // Clear screen
+            document.getElementById('hud').classList.add('hidden');
+            
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('status-msg').innerText = '';
+            document.getElementById('submit-btn').disabled = false;
+        }
+
+        // GOOGLE SHEETS SUBMISSION
+        document.getElementById('score-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // --- REPLACE THIS URL WITH YOUR WEB APP URL FROM STEP 1 ---
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3EDrdtrpXYl_DqhnDzWZVlxgnlFVtgxyFEHanseUhx3wZkwbTIEviw20OhFMrNmlV/exec"; 
+            
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('status-msg');
+            
+            btn.disabled = true;
+            btn.innerText = "SAVING...";
+
+            const formData = new URLSearchParams();
+            formData.append('name', document.getElementById('playerName').value);
+            formData.append('email', document.getElementById('playerEmail').value);
+            formData.append('phone', document.getElementById('playerPhone').value);
+            formData.append('score', score);
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: formData,
+                mode: 'no-cors' // Bypasses CORS issues for simple form posts
+            }).then(() => {
+                msg.innerText = "Score logged successfully to spreadsheet!";
+                btn.innerText = "SUBMIT SCORE";
+                // Optionally reset form
+                document.getElementById('score-form').reset();
+            }).catch(error => {
+                msg.style.color = "#f00";
+                msg.innerText = "Error saving score.";
+                btn.disabled = false;
+                btn.innerText = "SUBMIT SCORE";
+            });
+        });
+    </script>
+</body>
+</html>
