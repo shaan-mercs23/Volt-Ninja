@@ -119,7 +119,7 @@
         <div class="screen hidden" id="end-screen">
             <h1>MISSION OVER</h1>
             <p>Final Score: <span id="final-score" style="color: #ffea00; font-size: 32px; font-weight: bold;">0</span></p>
-            <p>Enter your details to save your score to the database!</p>
+            <p>Enter your details to save your score</p>
             
             <form id="score-form">
                 <input type="text" id="playerName" placeholder="Your Name" required>
@@ -262,7 +262,7 @@
                 body: formData,
                 mode: 'no-cors' // Bypasses CORS issues for simple form posts
             }).then(() => {
-                msg.innerText = "Score logged successfully to spreadsheet!";
+                msg.innerText = "Score saved successfully!";
                 btn.innerText = "SUBMIT SCORE";
                 // Optionally reset form
                 document.getElementById('score-form').reset();
