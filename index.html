@@ -122,9 +122,8 @@
             <p>Enter your details to save your score</p>
             
             <form id="score-form">
+                <input type="text" id="participantId" placeholder="Participant ID" required>
                 <input type="text" id="playerName" placeholder="Your Name" required>
-                <input type="email" id="playerEmail" placeholder="Your Email" required>
-                <input type="tel" id="playerPhone" placeholder="Your Phone Number" required>
                 <button type="submit" id="submit-btn">SUBMIT SCORE</button>
             </form>
             <p id="status-msg" style="margin-top: 15px; color: #0f0;"></p>
@@ -243,7 +242,7 @@
             e.preventDefault();
             
             // --- REPLACE THIS URL WITH YOUR WEB APP URL FROM STEP 1 ---
-            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx3EDrdtrpXYl_DqhnDzWZVlxgnlFVtgxyFEHanseUhx3wZkwbTIEviw20OhFMrNmlV/exec"; 
+            const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzKDH5vCiMxpn8gP2Ubf815yPNdJlSYduKPWusNhd6tfUQ4_eeE4BCvJ2SEQu-GJAmx6A/exec"; 
             
             const btn = document.getElementById('submit-btn');
             const msg = document.getElementById('status-msg');
@@ -252,9 +251,8 @@
             btn.innerText = "SAVING...";
 
             const formData = new URLSearchParams();
+            formData.append('participantId', document.getElementById('participantId').value);
             formData.append('name', document.getElementById('playerName').value);
-            formData.append('email', document.getElementById('playerEmail').value);
-            formData.append('phone', document.getElementById('playerPhone').value);
             formData.append('score', score);
 
             fetch(SCRIPT_URL, {
